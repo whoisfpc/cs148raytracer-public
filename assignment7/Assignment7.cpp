@@ -15,7 +15,7 @@ std::shared_ptr<Camera> Assignment7::CreateCamera() const
 // 0 -- Naive.
 // 1 -- BVH.
 // 2 -- Grid.
-#define ACCELERATION_TYPE 1
+#define ACCELERATION_TYPE 2
 
 std::shared_ptr<Scene> Assignment7::CreateScene() const
 {
@@ -67,7 +67,7 @@ std::shared_ptr<Scene> Assignment7::CreateScene() const
     UniformGridAcceleration* accelerator = dynamic_cast<UniformGridAcceleration*>(newScene->GenerateAccelerationData(AccelerationTypes::UNIFORM_GRID));
     assert(accelerator);
     // Assignment 7 Part 2 TODO: Change the glm::ivec3(10, 10, 10) here.
-    accelerator->SetSuggestedGridSize(glm::ivec3(10, 10, 10));
+    accelerator->SetSuggestedGridSize(glm::ivec3(3, 3, 3));
 #endif    
     newScene->AddLight(pointLight);
 
