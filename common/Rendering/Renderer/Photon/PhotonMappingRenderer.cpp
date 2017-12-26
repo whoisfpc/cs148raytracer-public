@@ -30,6 +30,9 @@ void PhotonMappingRenderer::InitializeRenderer()
 
 void PhotonMappingRenderer::GenericPhotonMapGeneration(PhotonKdtree& photonMap, int totalPhotons)
 {
+	hitCount = 0;
+	bounceHitCount = 0;
+	srand(time(NULL));
     float totalLightIntensity = 0.f;
     size_t totalLights = storedScene->GetTotalLights();
     for (size_t i = 0; i < totalLights; ++i) {
@@ -58,6 +61,8 @@ void PhotonMappingRenderer::GenericPhotonMapGeneration(PhotonKdtree& photonMap, 
             TracePhoton(photonMap, &photonRay, photonIntensity, path, 1.f, maxPhotonBounces);
         }
     }
+	std::cout << "hitCount " << hitCount << std::endl;
+	std::cout << "bounceHitCount " << bounceHitCount << std::endl;
 }
 
 void PhotonMappingRenderer::TracePhoton(PhotonKdtree& photonMap, Ray* photonRay, glm::vec3 lightIntensity, std::vector<char>& path, float currentIOR, int remainingBounces)
@@ -71,9 +76,70 @@ void PhotonMappingRenderer::TracePhoton(PhotonKdtree& photonMap, Ray* photonRay,
      *        photonMap.insert(myPhoton);
      */
 
+	if (remainingBounces < 0) return;
+
     assert(photonRay);
     IntersectionState state(0, 0);
     state.currentIOR = currentIOR;
+	if (!storedScene->Trace(photonRay, &state)) {
+		return;
+	}
+	else if (path.size() == 1)
+	{
+		hitCount++;
+	}
+	else if (path.size() > 1) {
+		bounceHitCount++;
+		const auto intersectionPoint = state.intersectionRay.GetRayPosition(state.intersectionT);
+		auto toLignthRay = Ray(*photonRay);
+		toLignthRay.SetRayDirection(-(photonRay->GetRayDirection()));
+		Photon photon;
+		photon.position = intersectionPoint;
+		photon.intensity = lightIntensity;
+		photon.toLightRay = toLignthRay;
+		photonMap.insert(photon);
+	}
+
+	const auto hitMeshObject = state.intersectedPrimitive->GetParentMeshObject();
+	const auto hitMaterial = hitMeshObject->GetMaterial();
+
+	const auto reflection = hitMaterial->GetBaseDiffuseReflection();
+	const auto pr = glm::max(glm::max(reflection.x, reflection.y), reflection.z);
+	const auto p = ((float)rand()) / RAND_MAX;
+	if (p > pr)
+	{
+		// photon absorption
+		return;
+	}
+	// photon scatter
+	path.push_back('I');
+	const auto u = ((float)rand()) / RAND_MAX;
+	const auto v = ((float)rand()) / RAND_MAX;
+	const auto r = glm::sqrt(u);
+	const auto theta = 2.0f * glm::pi<float>() * v;
+	const auto x = r * glm::cos(theta);
+	const auto y = r * glm::sin(theta);
+	const auto z = glm::sqrt(1 - u);
+
+	const auto localRayDir = glm::normalize(glm::vec3(x, y, z));
+
+	glm::vec3 xdir;
+	const auto n = state.ComputeNormal();
+	const auto testParallel = glm::dot(n, glm::vec3(1, 0, 0));
+	if (1 - glm::abs(testParallel) < 0.1) {
+		xdir = glm::vec3(0, 1, 0);
+	}
+	else {
+		xdir = glm::vec3(1, 0, 0);
+	}
+	const auto t = glm::cross(n, xdir);
+	const auto b = glm::cross(n, t);
+	const auto mat = glm::mat3x3(t, b, n);
+
+	const auto worldRayDir = mat * localRayDir;
+	photonRay->SetRayDirection(worldRayDir);
+
+	TracePhoton(photonMap, photonRay, lightIntensity, path, currentIOR, remainingBounces - 1);
 }
 
 glm::vec3 PhotonMappingRenderer::ComputeSampleColor(const struct IntersectionState& intersection, const class Ray& fromCameraRay) const

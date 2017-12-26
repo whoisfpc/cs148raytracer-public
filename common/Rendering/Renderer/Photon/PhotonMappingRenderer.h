@@ -21,6 +21,9 @@ private:
 
     int diffusePhotonNumber;
     int maxPhotonBounces;
+	
+	int hitCount;
+	int bounceHitCount;
 
     void GenericPhotonMapGeneration(PhotonKdtree& photonMap, int totalPhotons);
     void TracePhoton(PhotonKdtree& photonMap, Ray* photonRay, glm::vec3 lightIntensity, std::vector<char>& path, float currentIOR, int remainingBounces);
